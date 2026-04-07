@@ -62,9 +62,12 @@ async def monitor_wallets():
                         # Implementation note: In production, you'd call getTransaction to get the token address.
                         # For the sake of this prompt, I'll simulate a token discovery.
                         
-                        # Simulated token address extraction (In practice, parse the inner instructions)
-                        token_address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" # Example: USDC
-                        
+                        # Signal for stablecoins? Skip if we don't want to copy stable swaps
+                        from filters import WHITELISTED_TOKENS
+                        if token_address in WHITELISTED_TOKENS:
+                            logger.info(f"Signal for stablecoin {token_address} ignored.")
+                            continue
+
                         state_manager.record_signal(token_address)
                         count = state_manager.get_signal_count(token_address, CONFIRMATION_WINDOW_SECONDS)
                         
