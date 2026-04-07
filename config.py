@@ -13,6 +13,10 @@ JITO_ENDPOINT = os.getenv("JITO_ENDPOINT", "https://mainnet.block-engine.jito.wt
 JITO_UUID = os.getenv("JITO_UUID", "")  # Optional
 JITO_TIP_AMOUNT_SOL = float(os.getenv("JITO_TIP_AMOUNT_SOL", "0.0001"))
 
+# Telegram Configuration
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
 # Wallet Configuration
 PRIVATE_KEY = os.getenv("PRIVATE_KEY", "")
 SMART_WALLETS = os.getenv("SMART_WALLETS", "").split(",")

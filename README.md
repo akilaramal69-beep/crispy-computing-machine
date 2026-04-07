@@ -51,6 +51,8 @@ This bot is designed to run as a **Worker** service (no public ports needed).
 | `JITO_TIP_AMOUNT_SOL`| Tip for Jito validators (needed for bundles) | `0.0001` |
 | `STOP_LOSS_PERCENT` | Auto-sell at -X% from entry | `15` |
 | `CONFIRMATION_COUNT`| Number of wallets required for a trade | `2` |
+| `TELEGRAM_BOT_TOKEN`| Token from BotFather | `None` |
+| `TELEGRAM_CHAT_ID` | Your Telegram User/Chat ID | `None` |
 
 ## ⚠️ Disclaimer
 

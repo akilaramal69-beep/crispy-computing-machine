@@ -7,6 +7,7 @@ from config import WSS_ENDPOINT, SMART_WALLETS, CONFIRMATION_COUNT, CONFIRMATION
 from filters import validate_token
 from executor import executor
 from state import state_manager
+from telegram_bot import telegram_reporter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -77,6 +78,7 @@ async def monitor_wallets():
                                         state_manager.add_position(token_address, 1.0, 0.5)
                                 else:
                                     logger.info(f"Validation failed for {token_address}")
+                                    await telegram_reporter.report_status(f"Filter rejected token: `{token_address}`")
                             else:
                                 logger.info(f"Already have a position in {token_address}")
                                 
@@ -89,6 +91,7 @@ async def monitor_wallets():
 
 async def main():
     # Start tasks
+    await telegram_reporter.report_status("🤖 Bot started and monitoring wallets...")
     tasks = [
         asyncio.create_task(start_heartbeat()),
         asyncio.create_task(monitor_wallets())

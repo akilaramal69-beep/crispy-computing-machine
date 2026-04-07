@@ -5,3 +5,4 @@ websockets>=11.0.3
 python-dotenv>=1.0.0
 base58>=2.1.1
 jito-py-rpc>=0.1.0
+python-telegram-bot>=20.0

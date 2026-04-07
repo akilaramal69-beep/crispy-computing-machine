@@ -12,6 +12,7 @@ from config import (
     RPC_ENDPOINT, JITO_ENDPOINT, JITO_TIP_AMOUNT_SOL, 
     PRIVATE_KEY, MAX_POSITION_SOL, SLIPPAGE_LIMIT
 )
+from telegram_bot import telegram_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +88,13 @@ class TradeExecutor:
             # response = self.jito_client.send_bundle(transactions=[signed_tx])
             # logger.info(f"Jito Bundle submitted: {response}")
             
-            # Mocking successful submission for now as Jito requires specific tip instructions
-            logger.info("Jito Bundle submission simulated (Tip required in real environment)")
+            # Mocking successful submission for now
+            logger.info("Jito Bundle submission simulated")
+            await telegram_reporter.report_buy(token_address, MAX_POSITION_SOL)
             return True
         except Exception as e:
             logger.error(f"Error submitting Jito bundle: {e}")
+            await telegram_reporter.report_error(f"Failed to execute buy for {token_address}: {e}")
             return False
 
 executor = TradeExecutor()
