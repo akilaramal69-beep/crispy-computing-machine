@@ -4,7 +4,7 @@ import logging
 import websockets
 import time
 from config import WSS_ENDPOINT, SMART_WALLETS, CONFIRMATION_COUNT, CONFIRMATION_WINDOW_SECONDS
-from filters import validate_token
+from filters import validate_token, WHITELISTED_TOKENS
 from executor import executor
 from state import state_manager
 from telegram_bot import telegram_reporter
@@ -63,7 +63,8 @@ async def monitor_wallets():
                         # For the sake of this prompt, I'll simulate a token discovery.
                         
                         # Signal for stablecoins? Skip if we don't want to copy stable swaps
-                        from filters import WHITELISTED_TOKENS
+                        token_address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" # Example: USDC
+                        
                         if token_address in WHITELISTED_TOKENS:
                             logger.info(f"Signal for stablecoin {token_address} ignored.")
                             continue
