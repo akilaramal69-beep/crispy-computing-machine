@@ -9,10 +9,12 @@ logger = logging.getLogger(__name__)
 
 # Global session to be initialized in main.py
 _session = None
+JUP_DOMAINS = ["quote-api.jup.ag", "api.jup.ag"]
 
 async def get_session():
     global _session
     if _session is None or _session.closed:
+        # Use a longer timeout and shared session
         _session = aiohttp.ClientSession()
     return _session
 
@@ -42,19 +44,21 @@ async def simulate_sell(token_address: str, wallet_address: str):
     if not SIMULATE_SELL:
         return True
     
-    url = f"https://quote-api.jup.ag/v6/quote?inputMint={token_address}&outputMint=So11111111111111111111111111111111111111112&amount=100000000&slippageBps=50"
     session = await get_session()
     
-    for attempt in range(3):
-        try:
-            async with session.get(url, timeout=5) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return "outAmount" in data
-                return False
-        except (aiohttp.ClientConnectorError, asyncio.TimeoutError) as e:
-            logger.warning(f"Jupiter DNS/Connection error (attempt {attempt+1}): {e}")
-            await asyncio.sleep(1)
+    for domain in JUP_DOMAINS:
+        url = f"https://{domain}/v6/quote?inputMint={token_address}&outputMint=So11111111111111111111111111111111111111112&amount=100000000&slippageBps=50"
+        for attempt in range(2):
+            try:
+                async with session.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return "outAmount" in data
+                    elif response.status == 429:
+                        await asyncio.sleep(1)
+            except (aiohttp.ClientConnectorError, asyncio.TimeoutError) as e:
+                logger.warning(f"Jupiter DNS/Connection error on {domain} (attempt {attempt+1}): {e}")
+                await asyncio.sleep(1)
     return False
 
 async def validate_token(token_address: str, wallet_address: str):

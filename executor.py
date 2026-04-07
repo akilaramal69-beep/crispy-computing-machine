@@ -8,7 +8,7 @@ from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
-from filters import validate_token, get_session
+from filters import validate_token, get_session, JUP_DOMAINS
 from config import (
     RPC_ENDPOINT, JITO_ENDPOINT, JITO_TIP_AMOUNT_SOL, 
     PRIVATE_KEY, MAX_POSITION_SOL, SLIPPAGE_LIMIT
@@ -30,7 +30,7 @@ class JitoClient:
         }
         session = await get_session()
         try:
-            async with session.post(self.endpoint, json=payload, timeout=5) as response:
+            async with session.post(self.endpoint, json=payload, timeout=10) as response:
                 if response.status == 200:
                     data = await response.json()
                     return data.get("result")
@@ -49,31 +49,37 @@ class TradeExecutor:
         self.sol_mint = "So11111111111111111111111111111111111111112"
 
     async def get_jupiter_quote(self, input_mint: str, output_mint: str, amount_lamports: int):
-        url = f"https://quote-api.jup.ag/v6/quote?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}&slippageBps={int(SLIPPAGE_LIMIT * 100)}"
         session = await get_session()
-        for attempt in range(3):
-            try:
-                async with session.get(url, timeout=5) as response:
-                    if response.status == 200:
-                        return await response.json()
-                    return None
-            except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
-                await asyncio.sleep(1)
+        for domain in JUP_DOMAINS:
+            url = f"https://{domain}/v6/quote?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}&slippageBps={int(SLIPPAGE_LIMIT * 100)}"
+            for attempt in range(2):
+                try:
+                    async with session.get(url, timeout=5) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        elif response.status == 429:
+                            await asyncio.sleep(1)
+                except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
+                    await asyncio.sleep(1)
         return None
 
     async def get_jupiter_swap_tx(self, quote_data: dict, user_public_key: str):
-        url = "https://quote-api.jup.ag/v6/swap"
-        payload = {
-            "quoteResponse": quote_data,
-            "userPublicKey": user_public_key,
-            "wrapAndUnwrapSol": True
-        }
         session = await get_session()
-        async with session.post(url, json=payload, timeout=10) as response:
-            if response.status == 200:
-                data = await response.json()
-                return data.get("swapTransaction")
-            return None
+        for domain in JUP_DOMAINS:
+            url = f"https://{domain}/v6/swap"
+            payload = {
+                "quoteResponse": quote_data,
+                "userPublicKey": user_public_key,
+                "wrapAndUnwrapSol": True
+            }
+            try:
+                async with session.post(url, json=payload, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get("swapTransaction")
+            except Exception:
+                continue
+        return None
 
     async def execute_buy(self, token_address: str):
         amount_lamports = int(MAX_POSITION_SOL * 10**9)
