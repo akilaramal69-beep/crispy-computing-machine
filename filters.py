@@ -7,6 +7,15 @@ from config import RPC_ENDPOINT, MIN_MARKET_CAP_USD, CHECK_FREEZE_AUTHORITY, SIM
 
 logger = logging.getLogger(__name__)
 
+# Global session to be initialized in main.py
+_session = None
+
+async def get_session():
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession()
+    return _session
+
 async def get_token_market_cap(token_address: str):
     # In a real scenario, use Birdeye or Helius. 
     # For this implementation, we'll return a mock value or use a simple Helius/Jupiter check if possible.
@@ -33,14 +42,20 @@ async def simulate_sell(token_address: str, wallet_address: str):
     if not SIMULATE_SELL:
         return True
     
-    # Simple check: Can we get a quote from Jupiter for this token?
     url = f"https://quote-api.jup.ag/v6/quote?inputMint={token_address}&outputMint=So11111111111111111111111111111111111111112&amount=100000000&slippageBps=50"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                return "outAmount" in data
-            return False
+    session = await get_session()
+    
+    for attempt in range(3):
+        try:
+            async with session.get(url, timeout=5) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return "outAmount" in data
+                return False
+        except (aiohttp.ClientConnectorError, asyncio.TimeoutError) as e:
+            logger.warning(f"Jupiter DNS/Connection error (attempt {attempt+1}): {e}")
+            await asyncio.sleep(1)
+    return False
 
 async def validate_token(token_address: str, wallet_address: str):
     # 1. Market Cap

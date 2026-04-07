@@ -8,6 +8,7 @@ from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
+from filters import validate_token, get_session
 from config import (
     RPC_ENDPOINT, JITO_ENDPOINT, JITO_TIP_AMOUNT_SOL, 
     PRIVATE_KEY, MAX_POSITION_SOL, SLIPPAGE_LIMIT
@@ -18,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 class JitoClient:
     def __init__(self, endpoint: str):
-        # Ensure endpoint is correctly formatted for bundles API
         self.endpoint = endpoint.rstrip('/') + '/api/v1/bundles'
 
     async def send_bundle(self, transactions: list):
@@ -28,19 +28,19 @@ class JitoClient:
             "method": "sendBundle",
             "params": [transactions]
         }
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(self.endpoint, json=payload) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data.get("result")
-                    else:
-                        text = await response.text()
-                        logger.error(f"Jito error ({response.status}): {text}")
-                        return None
-            except Exception as e:
-                logger.error(f"Failed to connect to Jito: {e}")
-                return None
+        session = await get_session()
+        try:
+            async with session.post(self.endpoint, json=payload, timeout=5) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("result")
+                else:
+                    text = await response.text()
+                    logger.error(f"Jito error ({response.status}): {text}")
+                    return None
+        except Exception as e:
+            logger.error(f"Failed to connect to Jito: {e}")
+            return None
 
 class TradeExecutor:
     def __init__(self):
@@ -50,11 +50,16 @@ class TradeExecutor:
 
     async def get_jupiter_quote(self, input_mint: str, output_mint: str, amount_lamports: int):
         url = f"https://quote-api.jup.ag/v6/quote?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}&slippageBps={int(SLIPPAGE_LIMIT * 100)}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    return await response.json()
-                return None
+        session = await get_session()
+        for attempt in range(3):
+            try:
+                async with session.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    return None
+            except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
+                await asyncio.sleep(1)
+        return None
 
     async def get_jupiter_swap_tx(self, quote_data: dict, user_public_key: str):
         url = "https://quote-api.jup.ag/v6/swap"
@@ -63,12 +68,12 @@ class TradeExecutor:
             "userPublicKey": user_public_key,
             "wrapAndUnwrapSol": True
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data.get("swapTransaction")
-                return None
+        session = await get_session()
+        async with session.post(url, json=payload, timeout=10) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data.get("swapTransaction")
+            return None
 
     async def execute_buy(self, token_address: str):
         amount_lamports = int(MAX_POSITION_SOL * 10**9)
